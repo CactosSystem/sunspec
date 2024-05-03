@@ -700,6 +700,7 @@ dependencies = [
  "serde_json",
  "strum",
  "thiserror",
+ "tokio",
  "tokio-modbus 0.11.0",
 ]
 

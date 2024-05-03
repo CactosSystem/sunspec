@@ -10,6 +10,7 @@ use crate::value::{FixedSize, Value};
 use crate::DiscoveryResult;
 
 use tokio_modbus::client::{Context, Reader, Writer};
+use tokio::time::{Duration, timeout};
 
 async fn read_fixed_size<T: FixedSize>(context: &mut Context, addr: u16) -> io::Result<Option<T>> {
     match context.read_holding_registers(addr, T::SIZE).await {
@@ -31,7 +32,15 @@ pub async fn discover_models(context: &mut Context) -> Result<DiscoveryResult, D
     // Read addresses 0, 40000 and 50000 looking for the SunS identifier
     let mut info_model_addr: Option<u16> = None;
     for addr in [0, 40000, 50000] {
-        let identifier = read_fixed_size::<u32>(context, addr).await?;
+        let identifier_timeout_result = timeout(Duration::from_secs(1), read_fixed_size::<u32>(context, addr)).await;
+        let identifier = match identifier_timeout_result {
+            Ok(Ok(identifier)) => {
+                identifier
+            }
+            Ok(Err(e)) => return Err(DiscoveryError::IO(e)),
+            Err(_) => continue,
+        };
+
         if identifier == Some(SUNS_IDENTIFIER) {
             info_model_addr = Some(addr);
             break;
